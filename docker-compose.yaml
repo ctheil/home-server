@@ -1,0 +1,125 @@
+version: "3.0"
+services:
+
+  portainer:
+    container_name: portainer
+    image: portainer/portainer
+    restart: always
+    stdin_open: true
+    tty: true
+    ports:
+      - "9000:9000/tcp"
+    # network_mode: "host"
+    environment:
+      - TZ=America/Denver
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/portainer:/data
+    # networks: 
+    #   - mynetwork
+
+  homeassistant:
+    container_name: homeassistant
+    image: "ghcr.io/home-assistant/home-assistant:stable"
+    network_mode: host
+    # ports: 
+    #   - "8123:8123"
+    volumes:
+      - /opt/homeassistant/config:/config
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    privileged: true
+    # networks: 
+    #   - mynetwork
+
+
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    container_name: plex
+      #network_mode: host
+    network_mode: host
+    # ports: 
+    #   - "32400:32400"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Denver
+      - VERSION=docker
+      - PLEX_CLAIM=claim-F5NMM4ERSFJy7F7PE1Nw
+      - ADVRETISE_IP:http://192.168.0.41:32400
+    volumes:
+      - /opt/plex/config:/config
+      - /opt/plex/tv:/tv
+      - /opt/plex/movies:/movies
+    restart: unless-stopped
+    # networks: 
+    #   - mynetwork
+
+  homeserver: 
+    container_name: homeserver
+    image: ctheil/homeserver:latest
+      # network_mode: host
+    network_mode: host
+    # ports: 
+    #   - "8081:8081"
+    volumes: 
+      - ./data:/app/data # map local data directory to /app/data in container
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+        ../../ttyUSB0
+    restart: unless-stopped
+    privileged: true
+    # networks: 
+    #   - mynetwork
+
+  cloudflare:
+    container_name: cloudflare
+    image: cloudflare/cloudflared:latest
+    command: 'tunnel run --url http://homeassistant:8123'
+    environment:
+      - TUNNEL_URL=http://homeassistant:8123
+      - TUNNEL_TOKEN=eyJhIjoiMjMzMzE1YWUyMTFkMTBiMjYzZTVkNTI0OTY5NjgzMzgiLCJ0IjoiZDFjZmU1NTEtZDYxMS00MGUwLTk1ZTQtNGEyMGY4ZDlkM2FiIiwicyI6Ill6Z3haVFl5WTJRdFpUTTJOQzAwWVRSa0xUazJPVFl0WW1VME5tUTRNbVpqWXpWaiJ9
+    user: root
+    restart: unless-stopped
+    # networks: 
+    #   - mynetwork
+
+  # homebridge:
+  #   container_name: bridge
+  #   image: oznu/homebridge:ubuntu
+  #   restart: always
+  #   network_mode: host
+  #   ports: 
+  #     - "8581:8581"
+  #   environment: 
+  #     - PGID=1000
+  #     - PUID=1000
+  #     - HOMEBRIDGE_CONFIG_UI=1
+  #     - HOMEBRIDGE_CONFIG_UI_PORT=8581
+  #     - TZ=America/Denver
+  #   volumes:
+  #     - ./volumes/homebridge:/homebridge
+  homebridge:
+    image: homebridge/homebridge:latest
+    restart: always
+    network_mode: host
+    ports: 
+      - "8581:8581"
+    volumes:
+      - ./volumes/homebridge:/homebridge
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '1'
+    healthcheck:
+      test: curl --fail localhost:8581 || exit 1
+      interval: 60s
+      retries: 5
+      start_period: 300s
+      timeout: 2s
+
+
+# networks: 
+#   default: 
+  # mynetwork:
